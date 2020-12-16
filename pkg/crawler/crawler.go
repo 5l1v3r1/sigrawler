@@ -2,8 +2,8 @@ package crawler
 
 import (
 	"crypto/tls"
-	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -12,10 +12,11 @@ import (
 	"time"
 
 	"github.com/drsigned/gos"
-	ext "github.com/drsigned/sigrawler/pkg/crawler/extensions"
+	"github.com/drsigned/sigrawler/pkg/crawler/exts"
 	"github.com/gocolly/colly/v2"
 	"github.com/gocolly/colly/v2/debug"
 	"github.com/gocolly/colly/v2/extensions"
+	"github.com/gocolly/colly/v2/proxy"
 )
 
 // Crawler is a
@@ -46,7 +47,9 @@ func New(URL string, options *Options) (crawler Crawler, err error) {
 	eTLDPlus1 := parsedURL.ETLDPlus1
 	escapedETLDPlus1 := strings.ReplaceAll(eTLDPlus1, ".", "\\.")
 
+	// Instantiate default collector
 	pCollector := colly.NewCollector(
+		colly.Async(true),
 		colly.MaxDepth(options.Depth),
 	)
 
@@ -78,24 +81,50 @@ func New(URL string, options *Options) (crawler Crawler, err error) {
 		pCollector.SetDebugger(&debug.LogDebugger{})
 	}
 
-	// Insecure
-	if options.Insecure {
-		pCollector.WithTransport(&http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		})
+	// Setup the client with our transport to pass to the collectors
+	// NOTE: Must come BEFORE .SetClient calls
+	tr := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   time.Duration(crawler.Options.Timeout) * time.Second,
+			KeepAlive: time.Duration(crawler.Options.Timeout) * time.Second,
+		}).DialContext,
+		MaxIdleConns:    100, // Golang default is 100
+		IdleConnTimeout: time.Duration(crawler.Options.Timeout) * time.Second,
+	}
+
+	tr.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	client := &http.Client{
+		Transport: tr,
+	}
+
+	pCollector.SetClient(client)
+
+	// Setup proxy if supplied
+	// NOTE: Must come AFTER .SetClient calls
+	if crawler.Options.Proxies != "" {
+		proxies := strings.Split(crawler.Options.Proxies, ",")
+
+		rrps, err := proxy.RoundRobinProxySwitcher(proxies...)
+		if err != nil {
+			return crawler, err
+		}
+
+		pCollector.SetProxyFunc(rrps)
 	}
 
 	pCollector.SetRequestTimeout(
 		time.Duration(crawler.Options.Timeout) * time.Second,
 	)
 
+	// Limit the number of threads started by colly to `crawler.Options.Threads`
+	// when visiting links which domains' matches `*parsedURL.ETLDPlus1` glob
 	err = pCollector.Limit(&colly.LimitRule{
 		DomainGlob:  fmt.Sprintf("*%s", parsedURL.ETLDPlus1),
-		Parallelism: crawler.Options.Concurrency,
-		Delay:       time.Duration(crawler.Options.Delay) * time.Second,
-		RandomDelay: time.Duration(crawler.Options.RandomDelay) * time.Second,
+		Parallelism: crawler.Options.Threads,
+		Delay:       time.Duration(crawler.Options.Delay) * time.Millisecond,
 	})
 	if err != nil {
 		return crawler, err
@@ -112,19 +141,14 @@ func New(URL string, options *Options) (crawler Crawler, err error) {
 
 // Run is a
 func (crawler *Crawler) Run(URL string) (results Results, err error) {
-	// make sure the url has been set
-	if URL == "" {
-		return results, errors.New("no url was provided")
-	}
-
-	// these will store the discovered assets to avoid duplicates
 	var URLs sync.Map
-	URLsSlice := make([]string, 0)
 	var buckets sync.Map
+
+	URLsSlice := make([]string, 0)
 	bucketsSlice := make([]string, 0)
 
 	jsRegex := regexp.MustCompile(`(?m).*?\.*(js|json|xml|csv)(\?.*?|)$`)
-	filesRegex := regexp.MustCompile(`(?m).*?\.*(jpg|png|gif|webp|psd|raw|bmp|heif|ico|css|pdf|jpeg|css|tif|tiff|ttf|woff|woff2|pdf|doc|svg|txt|mp3|mp4|eot)(\?.*?|)$`)
+	ignoreRegex := regexp.MustCompile(`(?m).*?\.*(jpg|png|gif|webp|psd|raw|bmp|heif|ico|css|pdf|jpeg|css|tif|tiff|ttf|woff|woff2|pdf|doc|svg|mp3|mp4|eot)(\?.*?|)$`)
 
 	crawler.PCollector.OnRequest(func(request *colly.Request) {
 		reqURL := request.URL.String()
@@ -152,15 +176,33 @@ func (crawler *Crawler) Run(URL string) (results Results, err error) {
 		}
 
 		// Files: Is it an image or similar? Don't request it.
-		if match := filesRegex.MatchString(reqURL); match {
+		if match := ignoreRegex.MatchString(reqURL); match {
 			request.Abort()
 			return
 		}
 	})
 
+	crawler.PCollector.OnError(func(response *colly.Response, err error) {
+		if response.StatusCode == 404 || response.StatusCode == 429 || response.StatusCode < 100 || response.StatusCode >= 500 {
+			return
+		}
+
+		u := response.Request.URL.String()
+
+		if _, exists := URLs.Load(u); exists {
+			return
+		}
+
+		if ok := crawler.record("[url]", u); ok {
+			URLsSlice = append(URLsSlice, u)
+		}
+
+		URLs.Store(u, struct{}{})
+	})
+
 	crawler.PCollector.OnResponse(func(response *colly.Response) {
 		// s3 buckets
-		S3s, err := ext.S3finder(string(response.Body))
+		S3s, err := exts.S3finder(string(response.Body))
 		if err != nil {
 			return
 		}
@@ -179,23 +221,29 @@ func (crawler *Crawler) Run(URL string) (results Results, err error) {
 
 	crawler.PCollector.OnHTML("[href]", func(e *colly.HTMLElement) {
 		link := e.Attr("href")
+
 		// Get the absolute URL
+		// An absolute URL provides all available data about a page’s location on the web.
+		// Example: https://www.somewebsite.com/catalog/category/product
 		absoluteURL := e.Request.AbsoluteURL(link)
+
 		// Trim the trailing slash
 		absoluteURL = strings.TrimRight(absoluteURL, "/")
+
 		// Trim the spaces on either end (if any)
 		absoluteURL = strings.Trim(absoluteURL, " ")
 
-		URL := fixURL(absoluteURL, crawler.URL)
-		if URL == "" {
+		if absoluteURL == "" {
 			return
 		}
+
+		URL := fixURL(absoluteURL, crawler.URL)
 
 		if _, exists := URLs.Load(URL); exists {
 			return
 		}
 
-		e.Request.Visit(link)
+		e.Request.Visit(URL)
 
 		if ok := crawler.record("[url]", URL); ok {
 			URLsSlice = append(URLsSlice, URL)
@@ -204,26 +252,45 @@ func (crawler *Crawler) Run(URL string) (results Results, err error) {
 		URLs.Store(URL, struct{}{})
 	})
 
-	crawler.PCollector.OnHTML("[src]", func(e *colly.HTMLElement) {
+	crawler.PCollector.OnHTML("script[src]", func(e *colly.HTMLElement) {
 		link := e.Attr("src")
+
 		// Get the absolute URL
+		// An absolute URL provides all available data about a page’s location on the web.
+		// Example: https://www.somewebsite.com/catalog/category/product
 		absoluteURL := e.Request.AbsoluteURL(link)
 
+		// Trim the trailing slash
+		absoluteURL = strings.TrimRight(absoluteURL, "/")
+
+		// Trim the spaces on either end (if any)
+		absoluteURL = strings.Trim(absoluteURL, " ")
+		if absoluteURL == "" {
+			return
+		}
+
 		URL := fixURL(absoluteURL, crawler.URL)
-		if URL == "" {
+
+		if _, exists := URLs.Load(URL); exists {
 			return
 		}
 
 		crawler.PCollector.Visit(URL)
 
-		crawler.record("[javascript]", URL)
+		if ok := crawler.record("[js]", URL); ok {
+			URLsSlice = append(URLsSlice, URL)
+		}
 
 		URLs.Store(URL, struct{}{})
 	})
 
 	crawler.JCollector.OnResponse(func(response *colly.Response) {
-		endpoints, err := ext.Linkfinder(string(response.Body))
+		endpoints, err := exts.Linkfinder(string(response.Body))
 		if err != nil {
+			return
+		}
+
+		if len(endpoints) < 1 {
 			return
 		}
 
@@ -232,27 +299,40 @@ func (crawler *Crawler) Run(URL string) (results Results, err error) {
 			if len(endpoint) <= 0 {
 				continue
 			}
+
 			// Remove the single and double quotes from the parsed link on the ends
 			endpoint = strings.Trim(endpoint, "\"")
 			endpoint = strings.Trim(endpoint, "'")
+
 			// Get the absolute URL
 			absoluteURL := response.Request.AbsoluteURL(endpoint)
 
-			if _, exists := URLs.Load(absoluteURL); exists {
+			// Trim the trailing slash
+			absoluteURL = strings.TrimRight(absoluteURL, "/")
+
+			// Trim the spaces on either end (if any)
+			absoluteURL = strings.Trim(absoluteURL, " ")
+			if absoluteURL == "" {
 				return
 			}
 
-			crawler.PCollector.Visit(absoluteURL)
+			URL := fixURL(absoluteURL, crawler.URL)
 
-			if ok := crawler.record("[linkfinder]", absoluteURL); ok {
-				URLsSlice = append(URLsSlice, absoluteURL)
+			if _, exists := URLs.Load(URL); exists {
+				return
 			}
 
-			URLs.Store(absoluteURL, struct{}{})
+			crawler.PCollector.Visit(URL)
+
+			if ok := crawler.record("[linkfinder]", URL); ok {
+				URLsSlice = append(URLsSlice, URL)
+			}
+
+			URLs.Store(URL, struct{}{})
 		}
 
 		// s3 buckets
-		S3s, err := ext.S3finder(string(response.Body))
+		S3s, err := exts.S3finder(string(response.Body))
 		if err != nil {
 			return
 		}
@@ -281,6 +361,8 @@ func (crawler *Crawler) Run(URL string) (results Results, err error) {
 	}()
 
 	wg.Wait()
+	crawler.PCollector.Wait()
+	crawler.JCollector.Wait()
 
 	results.URLs = URLsSlice
 	results.Buckets = bucketsSlice
@@ -289,6 +371,8 @@ func (crawler *Crawler) Run(URL string) (results Results, err error) {
 }
 
 func (crawler *Crawler) record(tag string, URL string) (print bool) {
+	URL = decode(URL)
+
 	parsedURL, err := url.Parse(URL)
 	if err != nil {
 		return false

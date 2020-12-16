@@ -40,26 +40,25 @@ $ sigrawler -h
  ___(_) __ _ _ __ __ ___      _| | ___ _ __
 / __| |/ _` | '__/ _` \ \ /\ / / |/ _ \ '__|
 \__ \ | (_| | | | (_| |\ V  V /| |  __/ |
-|___/_|\__, |_|  \__,_| \_/\_/ |_|\___|_| v1.0.0
+|___/_|\__, |_|  \__,_| \_/\_/ |_|\___|_| v1.1.0
        |___/
 
 USAGE:
   sigrawler [OPTIONS]
 
 GENERAL OPTIONS:
-  -debug             debug mode: extremely verbose output (default: false)
   -nc                no color mode
+  -u                 the url that you wish to crawl
 
 CRAWLER OPTIONS:
-  -c                 number of maximum allowed concurrent requests of the matching domains (default 5)
+  -debug             debug mode: extremely verbose output (default: false)
+  -delay             delay in ms between requests. (default 2000)
   -depth             maximum depth to crawl (default: 1)
-  -subs              crawl subdomains (default: false)
-
-HTTP OPTIONS:
-  -insecure          ignore invalid HTTPS certificates
+  -threads           maximum no. of concurrent requests (default 20)
   -timeout           HTTP timeout
-  -url               the url that you wish to crawl
+  -subs              crawl subdomains (default: false)
   -UA                User Agent to use
+  -x                 comma separated list of proxies
 
 OUTPUT OPTIONS:
   -o                 JSON output file

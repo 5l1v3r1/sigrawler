@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/drsigned/gos"
 	"github.com/drsigned/sigrawler/pkg/crawler"
 	"github.com/logrusorgru/aurora/v3"
 )
@@ -34,25 +35,25 @@ func banner() {
  ___(_) __ _ _ __ __ ___      _| | ___ _ __
 / __| |/ _`+"`"+` | '__/ _`+"`"+` \ \ /\ / / |/ _ \ '__|
 \__ \ | (_| | | | (_| |\ V  V /| |  __/ |
-|___/_|\__, |_|  \__,_| \_/\_/ |_|\___|_| v1.0.0
+|___/_|\__, |_|  \__,_| \_/\_/ |_|\___|_| v1.1.0
        |___/
 `).Bold())
 }
 
 func init() {
 	// GENERAL OPTIONS
-	flag.BoolVar(&so.Debug, "debug", false, "")
 	flag.BoolVar(&co.noColor, "nc", false, "")
+	flag.StringVar(&co.URL, "u", "", "")
 
 	// CRAWLER OPTIONS
-	flag.IntVar(&so.Concurrency, "c", 5, "")
+	flag.BoolVar(&so.Debug, "debug", false, "")
 	flag.IntVar(&so.Depth, "depth", 1, "")
+	flag.IntVar(&so.Delay, "delay", 2000, "")
+	flag.IntVar(&so.Threads, "threads", 20, "")
 	flag.BoolVar(&so.IncludeSubs, "subs", false, "")
-
-	// HTTP OPTIONS
-	flag.BoolVar(&so.Insecure, "insecure", false, "")
+	flag.StringVar(&so.Proxies, "x", "", "")
 	flag.IntVar(&so.Timeout, "timeout", 10, "")
-	flag.StringVar(&co.URL, "url", "", "")
+
 	flag.StringVar(&so.UserAgent, "UA", "", "")
 
 	// OUTPUT OPTIONS
@@ -66,19 +67,18 @@ func init() {
 		h += "  sigrawler [OPTIONS]\n"
 
 		h += "\nGENERAL OPTIONS:\n"
-		h += "  -debug             debug mode: extremely verbose output (default: false)\n"
 		h += "  -nc                no color mode\n"
+		h += "  -u                 the url that you wish to crawl\n"
 
 		h += "\nCRAWLER OPTIONS:\n"
-		h += "  -c                 maximum no. of concurrent requests (default 5)\n"
+		h += "  -debug             debug mode: extremely verbose output (default: false)\n"
+		h += "  -delay             delay in ms between requests. (default 2000)\n"
 		h += "  -depth             maximum depth to crawl (default: 1)\n"
-		h += "  -subs              crawl subdomains (default: false)\n"
-
-		h += "\nHTTP OPTIONS:\n"
-		h += "  -insecure          ignore invalid HTTPS certificates\n"
+		h += "  -threads           maximum no. of concurrent requests (default 20)\n"
 		h += "  -timeout           HTTP timeout\n"
-		h += "  -url               the url that you wish to crawl\n"
+		h += "  -subs              crawl subdomains (default: false)\n"
 		h += "  -UA                User Agent to use\n"
+		h += "  -x                 comma separated list of proxies\n"
 
 		h += "\nOUTPUT OPTIONS:\n"
 		h += "  -o                 JSON output file\n"
@@ -109,6 +109,10 @@ func main() {
 
 		close(URLs)
 	} else {
+		if !gos.HasStdin() {
+			os.Exit(1)
+		}
+
 		go func() {
 			defer close(URLs)
 

@@ -2,13 +2,12 @@ package crawler
 
 // Options is the structure of the options expected
 type Options struct {
-	Concurrency int
 	Debug       bool
 	Delay       int
 	Depth       int
 	IncludeSubs bool
-	Insecure    bool
-	RandomDelay int
+	Threads     int
+	Proxies     string
 	Timeout     int
 	UserAgent   string
 }
