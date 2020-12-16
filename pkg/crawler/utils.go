@@ -2,7 +2,6 @@ package crawler
 
 import (
 	"net/url"
-	"path"
 	"strings"
 
 	"github.com/drsigned/gos"
@@ -53,15 +52,15 @@ func decodeChars(s string) string {
 	return s
 }
 
-func getExtType(URL string) string {
-	u, err := gos.ParseURL(URL)
-	if err != nil {
-		return ""
-	}
+// func getExtType(URL string) string {
+// 	u, err := gos.ParseURL(URL)
+// 	if err != nil {
+// 		return ""
+// 	}
 
-	return path.Ext(u.Path)
-}
+// 	return path.Ext(u.Path)
+// }
 
-func strMatch(s1 string, s2 string) bool {
-	return strings.ToLower(s1) == strings.ToLower(s2)
-}
+// func strMatch(s1 string, s2 string) bool {
+// 	return strings.ToLower(s1) == strings.ToLower(s2)
+// }

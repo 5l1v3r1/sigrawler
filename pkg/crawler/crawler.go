@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -55,7 +56,6 @@ func New(URL string, options *Options) (crawler Crawler, err error) {
 				fmt.Sprintf(`(https?)://[^\s?#\/]*%s/?[^\s]*`, escapedETLDPlus1),
 			),
 		}
-
 	} else {
 		pCollector.AllowedDomains = []string{
 			eTLDPlus1,
@@ -123,8 +123,8 @@ func (crawler *Crawler) Run(URL string) (results Results, err error) {
 	var buckets sync.Map
 	bucketsSlice := make([]string, 0)
 
-	jsRegex := regexp.MustCompile(`(?m).*?\.*(js|json)(\?.*?|)$`)
-	filesRegex := regexp.MustCompile(`(?m).*?\.*(jpg|png|gif|webp|tiff|psd|raw|bmp|heif|ico|css|pdf|jpeg|css|tif|ttf|woff|woff2|pdf|doc|svg|txt|mp3|mp4|eot)(\?.*?|)$`)
+	jsRegex := regexp.MustCompile(`(?m).*?\.*(js|json|xml|csv)(\?.*?|)$`)
+	filesRegex := regexp.MustCompile(`(?m).*?\.*(jpg|png|gif|webp|psd|raw|bmp|heif|ico|css|pdf|jpeg|css|tif|tiff|ttf|woff|woff2|pdf|doc|svg|txt|mp3|mp4|eot)(\?.*?|)$`)
 
 	crawler.PCollector.OnRequest(func(request *colly.Request) {
 		reqURL := request.URL.String()
@@ -289,7 +289,7 @@ func (crawler *Crawler) Run(URL string) (results Results, err error) {
 }
 
 func (crawler *Crawler) record(tag string, URL string) (print bool) {
-	parsedURL, err := gos.ParseURL(URL)
+	parsedURL, err := url.Parse(URL)
 	if err != nil {
 		return false
 	}
