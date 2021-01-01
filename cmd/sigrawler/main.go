@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -12,21 +13,21 @@ import (
 	"sync"
 
 	"github.com/drsigned/gos"
-	"github.com/drsigned/sigrawler/pkg/crawler"
+	"github.com/drsigned/sigrawler/pkg/sigrawler"
 	"github.com/logrusorgru/aurora/v3"
 )
 
 type options struct {
 	noColor bool
 	silent  bool
-	URL     string
+	URLs    string
 	output  string
 }
 
 var (
 	co options
 	au aurora.Aurora
-	so crawler.Options
+	so sigrawler.Options
 )
 
 func banner() {
@@ -41,24 +42,18 @@ func banner() {
 }
 
 func init() {
-	// GENERAL OPTIONS
-	flag.BoolVar(&co.noColor, "nc", false, "")
-	flag.StringVar(&co.URL, "u", "", "")
-
-	// CRAWLER OPTIONS
 	flag.BoolVar(&so.Debug, "debug", false, "")
+	flag.IntVar(&so.Delay, "delay", 5, "")
 	flag.IntVar(&so.Depth, "depth", 1, "")
-	flag.IntVar(&so.Delay, "delay", 2000, "")
-	flag.IntVar(&so.Threads, "threads", 20, "")
-	flag.BoolVar(&so.IncludeSubs, "subs", false, "")
-	flag.StringVar(&so.Proxies, "x", "", "")
-	flag.IntVar(&so.Timeout, "timeout", 10, "")
-
-	flag.StringVar(&so.UserAgent, "UA", "", "")
-
-	// OUTPUT OPTIONS
-	flag.StringVar(&co.output, "o", "", "")
+	flag.StringVar(&co.URLs, "iL", "", "")
+	flag.BoolVar(&so.IncludeSubs, "iS", false, "")
+	flag.BoolVar(&co.noColor, "nC", false, "")
+	flag.StringVar(&co.output, "oJ", "", "")
 	flag.BoolVar(&co.silent, "s", false, "")
+	flag.IntVar(&so.Threads, "threads", 20, "")
+	flag.IntVar(&so.Timeout, "timeout", 10, "")
+	flag.StringVar(&so.UserAgent, "UA", "", "")
+	flag.StringVar(&so.Proxies, "x", "", "")
 
 	flag.Usage = func() {
 		banner()
@@ -66,23 +61,20 @@ func init() {
 		h := "USAGE:\n"
 		h += "  sigrawler [OPTIONS]\n"
 
-		h += "\nGENERAL OPTIONS:\n"
-		h += "  -nc                no color mode\n"
-		h += "  -u                 the url that you wish to crawl\n"
-
-		h += "\nCRAWLER OPTIONS:\n"
-		h += "  -debug             debug mode: extremely verbose output (default: false)\n"
-		h += "  -delay             delay in ms between requests. (default 2000)\n"
-		h += "  -depth             maximum depth to crawl (default: 1)\n"
-		h += "  -threads           maximum no. of concurrent requests (default 20)\n"
-		h += "  -timeout           HTTP timeout\n"
-		h += "  -subs              crawl subdomains (default: false)\n"
-		h += "  -UA                User Agent to use\n"
-		h += "  -x                 comma separated list of proxies\n"
-
-		h += "\nOUTPUT OPTIONS:\n"
-		h += "  -o                 JSON output file\n"
-		h += "  -s                 silent mode: print urls only (default: false)\n"
+		h += "\nOPTIONS:\n"
+		h += "  -debug          debug mode (default: false)\n"
+		h += "  -delay          delay between requests. (default 5s)\n"
+		h += "  -depth          maximum limit on the recursion depth of visited URLs. (default 1)\n"
+		h += "  -iL             urls to crawl (use `iL -` to read from stdin)\n"
+		h += "  -iS             extend scope to include subdomains (default: false)\n"
+		h += "  -nC             no color mode\n"
+		h += "  -oJ             JSON output file\n"
+		h += "  -s              silent mode: print urls only (default: false)\n"
+		h += "  -threads        maximum no. of concurrent requests (default 20)\n"
+		h += "  -timeout        HTTP timeout (default 10s)\n"
+		h += "  -UA             User Agent to use\n"
+		h += "  -x              comma separated list of proxies\n"
+		h += "\n"
 
 		fmt.Fprintf(os.Stderr, h)
 	}
@@ -93,55 +85,59 @@ func init() {
 }
 
 func main() {
-	options, err := crawler.ParseOptions(&so)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
 	if !co.silent {
 		banner()
 	}
 
-	URLs := make(chan string, 1)
-
-	if co.URL != "" {
-		URLs <- co.URL
-
-		close(URLs)
-	} else {
-		if !gos.HasStdin() {
-			os.Exit(1)
-		}
-
-		go func() {
-			defer close(URLs)
-
-			scanner := bufio.NewScanner(os.Stdin)
-
-			for scanner.Scan() {
-				URL := strings.ToLower(scanner.Text())
-
-				if URL != "" {
-					URLs <- URL
-				}
-			}
-		}()
+	options, err := sigrawler.ParseOptions(&so)
+	if err != nil {
+		log.Fatalln(err)
 	}
 
+	URLs := make(chan string)
+
+	go func() {
+		defer close(URLs)
+
+		var scanner *bufio.Scanner
+
+		if co.URLs == "-" {
+			if !gos.HasStdin() {
+				log.Fatalln(errors.New("no stdin: '-iL -' provided"))
+			}
+
+			scanner = bufio.NewScanner(os.Stdin)
+		} else {
+			openedFile, err := os.Open(co.URLs)
+			if err != nil {
+				log.Fatalln(err)
+			}
+			defer openedFile.Close()
+
+			scanner = bufio.NewScanner(openedFile)
+		}
+
+		for scanner.Scan() {
+			if scanner.Text() != "" {
+				URLs <- scanner.Text()
+			}
+		}
+
+		if scanner.Err() != nil {
+			log.Fatalln(scanner.Err())
+		}
+	}()
+
 	var wg sync.WaitGroup
-	var output crawler.Results
+	var output sigrawler.Results
 
 	for URL := range URLs {
 		wg.Add(1)
 
-		if URL == "" {
-			continue
-		}
-
 		go func(URL string) {
 			defer wg.Done()
 
-			crawler, err := crawler.New(URL, options)
+			crawler, err := sigrawler.New(URL, options)
 			if err != nil {
 				log.Fatalln(err)
 			}
@@ -165,7 +161,7 @@ func main() {
 	}
 }
 
-func saveResults(outputPath string, output crawler.Results) error {
+func saveResults(outputPath string, output sigrawler.Results) error {
 	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
 		directory, filename := path.Split(outputPath)
 

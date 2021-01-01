@@ -1,4 +1,4 @@
-package crawler
+package sigrawler
 
 import (
 	"crypto/tls"
@@ -12,29 +12,22 @@ import (
 	"time"
 
 	"github.com/drsigned/gos"
-	"github.com/drsigned/sigrawler/pkg/crawler/exts"
+	"github.com/drsigned/sigrawler/pkg/sigrawler/exts"
 	"github.com/gocolly/colly/v2"
 	"github.com/gocolly/colly/v2/debug"
 	"github.com/gocolly/colly/v2/extensions"
 	"github.com/gocolly/colly/v2/proxy"
 )
 
-// Crawler is a
-type Crawler struct {
+type Sigrawler struct {
 	Options    *Options
 	URL        *gos.URL
 	PCollector *colly.Collector
 	JCollector *colly.Collector
 }
 
-// Results is a
-type Results struct {
-	URLs    []string `json:"urls,omitempty"`
-	Buckets []string `json:"s3,omitempty"`
-}
-
 // New is a
-func New(URL string, options *Options) (crawler Crawler, err error) {
+func New(URL string, options *Options) (crawler Sigrawler, err error) {
 	crawler.Options = options
 
 	parsedURL, err := gos.ParseURL(URL)
@@ -124,7 +117,7 @@ func New(URL string, options *Options) (crawler Crawler, err error) {
 	err = pCollector.Limit(&colly.LimitRule{
 		DomainGlob:  fmt.Sprintf("*%s", parsedURL.ETLDPlus1),
 		Parallelism: crawler.Options.Threads,
-		Delay:       time.Duration(crawler.Options.Delay) * time.Millisecond,
+		Delay:       time.Duration(crawler.Options.Delay) * time.Second,
 	})
 	if err != nil {
 		return crawler, err
@@ -140,7 +133,7 @@ func New(URL string, options *Options) (crawler Crawler, err error) {
 }
 
 // Run is a
-func (crawler *Crawler) Run(URL string) (results Results, err error) {
+func (crawler *Sigrawler) Run(URL string) (results Results, err error) {
 	var URLs sync.Map
 	var buckets sync.Map
 
@@ -370,7 +363,7 @@ func (crawler *Crawler) Run(URL string) (results Results, err error) {
 	return results, nil
 }
 
-func (crawler *Crawler) record(tag string, URL string) (print bool) {
+func (crawler *Sigrawler) record(tag string, URL string) (print bool) {
 	URL = decode(URL)
 
 	parsedURL, err := url.Parse(URL)

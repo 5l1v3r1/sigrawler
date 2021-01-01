@@ -1,4 +1,4 @@
-package crawler
+package sigrawler
 
 // Options is the structure of the options expected
 type Options struct {

@@ -1,6 +1,6 @@
 # sigrawler
 
-![made with go](https://img.shields.io/badge/made%20with-Go-0040ff.svg) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0040ff.svg) [![open issues](https://img.shields.io/github/issues-raw/drsigned/sigrawler.svg?style=flat&color=0040ff)](https://github.com/drsigned/sigrawler/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/drsigned/sigrawler.svg?style=flat&color=0040ff)](https://github.com/drsigned/sigrawler/issues?q=is:issue+is:closed) [![license](https://img.shields.io/badge/License-MIT-gray.svg?colorB=0040FF)](https://github.com/drsigned/sigrawler/blob/master/LICENSE.md) [![twitter](https://img.shields.io/badge/twitter-@drsigned-0040ff.svg)](https://twitter.com/drsigned)
+[![release](https://img.shields.io/github/release/drsigned/sigrawler?style=flat&color=0040ff)](https://github.com/drsigned/sigrawler/releases) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0040ff.svg) [![open issues](https://img.shields.io/github/issues-raw/drsigned/sigrawler.svg?style=flat&color=0040ff)](https://github.com/drsigned/sigrawler/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/drsigned/sigrawler.svg?style=flat&color=0040ff)](https://github.com/drsigned/sigrawler/issues?q=is:issue+is:closed) [![license](https://img.shields.io/badge/license-MIT-gray.svg?colorB=0040FF)](https://github.com/drsigned/sigrawler/blob/master/LICENSE) [![twitter](https://img.shields.io/badge/twitter-@drsigned-0040ff.svg)](https://twitter.com/drsigned)
 
 ## Resources
 
@@ -46,23 +46,19 @@ $ sigrawler -h
 USAGE:
   sigrawler [OPTIONS]
 
-GENERAL OPTIONS:
-  -nc                no color mode
-  -u                 the url that you wish to crawl
-
-CRAWLER OPTIONS:
-  -debug             debug mode: extremely verbose output (default: false)
-  -delay             delay in ms between requests. (default 2000)
-  -depth             maximum depth to crawl (default: 1)
-  -threads           maximum no. of concurrent requests (default 20)
-  -timeout           HTTP timeout
-  -subs              crawl subdomains (default: false)
-  -UA                User Agent to use
-  -x                 comma separated list of proxies
-
-OUTPUT OPTIONS:
-  -o                 JSON output file
-  -s                 silent mode: print urls only (default: false)
+OPTIONS:
+  -debug          debug mode (default: false)
+  -delay          delay between requests. (default 5s)
+  -depth          maximum limit on the recursion depth of visited URLs. (default 1)
+  -iL             urls to crawl (use `iL -` to read from stdin)
+  -iS             extend scope to include subdomains (default: false)
+  -nC             no color mode
+  -oJ             JSON output file
+  -s              silent mode: print urls only (default: false)
+  -threads        maximum no. of concurrent requests (default 20)
+  -timeout        HTTP timeout (default 10s)
+  -UA             User Agent to use
+  -x              comma separated list of proxies
 ```
 
 ## Contibution
