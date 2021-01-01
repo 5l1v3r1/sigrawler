@@ -4,32 +4,12 @@
 
 ## Resources
 
+* [Usage](#usage)
 * [Installation](#installation)
     * [From Binary](#from-binary)
     * [From source](#from-source)
     * [From github](#from-github)
-* [Usage](#usage)
 * [Contribution](#contribution)
-
-## Installation
-
-#### From Binary
-
-You can download the pre-built binary for your platform from this repository's [releases](https://github.com/drsigned/sigrawler/releases/) page, extract, then move it to your `$PATH`and you're ready to go.
-
-#### From Source
-
-sigrawler requires **go1.14+** to install successfully. Run the following command to get the repo
-
-```bash
-$ GO111MODULE=on go get -u -v github.com/drsigned/sigrawler/cmd/sigrawler
-```
-
-#### From Github
-
-```bash
-$ git clone https://github.com/drsigned/sigrawler.git; cd sigrawler/cmd/sigrawler/; go build; mv sigrawler /usr/local/bin/; sigrawler -h
-```
 
 ## Usage
 
@@ -59,6 +39,26 @@ OPTIONS:
   -timeout        HTTP timeout (default 10s)
   -UA             User Agent to use
   -x              comma separated list of proxies
+```
+
+## Installation
+
+#### From Binary
+
+You can download the pre-built binary for your platform from this repository's [releases](https://github.com/drsigned/sigrawler/releases/) page, extract, then move it to your `$PATH`and you're ready to go.
+
+#### From Source
+
+sigrawler requires **go1.14+** to install successfully. Run the following command to get the repo
+
+```bash
+$ GO111MODULE=on go get -u -v github.com/drsigned/sigrawler/cmd/sigrawler
+```
+
+#### From Github
+
+```bash
+$ git clone https://github.com/drsigned/sigrawler.git; cd sigrawler/cmd/sigrawler/; go build; mv sigrawler /usr/local/bin/; sigrawler -h
 ```
 
 ## Contibution
