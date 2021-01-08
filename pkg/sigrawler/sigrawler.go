@@ -140,13 +140,13 @@ func (crawler *Sigrawler) Run(URL string) (results Results, err error) {
 	URLsSlice := make([]string, 0)
 	bucketsSlice := make([]string, 0)
 
-	jsRegex := regexp.MustCompile(`(?m).*?\.*(js|json|xml|csv)(\?.*?|)$`)
+	jsRegex := regexp.MustCompile(`(?m).*?\.*(js|json|xml|csv|txt)(\?.*?|)$`)
 	ignoreRegex := regexp.MustCompile(`(?m).*?\.*(jpg|png|gif|webp|psd|raw|bmp|heif|ico|css|pdf|jpeg|css|tif|tiff|ttf|woff|woff2|pdf|doc|svg|mp3|mp4|eot)(\?.*?|)$`)
 
 	crawler.PCollector.OnRequest(func(request *colly.Request) {
 		reqURL := request.URL.String()
 
-		// JavaScript
+		// If it's a javascript, json, xml, csv or txt file, ensure we pass it to the JCollector
 		if match := jsRegex.MatchString(reqURL); match {
 			// Minified JavaScript
 			if strings.Contains(reqURL, ".min.js") {
@@ -168,7 +168,7 @@ func (crawler *Sigrawler) Run(URL string) (results Results, err error) {
 			return
 		}
 
-		// Files: Is it an image or similar? Don't request it.
+		// Is it an image or similar? Don't request it.
 		if match := ignoreRegex.MatchString(reqURL); match {
 			request.Abort()
 			return
@@ -227,6 +227,12 @@ func (crawler *Sigrawler) Run(URL string) (results Results, err error) {
 		absoluteURL = strings.Trim(absoluteURL, " ")
 
 		if absoluteURL == "" {
+			return
+		}
+
+		u, _ := url.Parse(absoluteURL)
+
+		if u.Scheme != "" && u.Scheme != "http" && u.Scheme != "https" {
 			return
 		}
 
