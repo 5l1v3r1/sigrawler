@@ -7,7 +7,7 @@ type Options struct {
 	Depth       int
 	IncludeSubs bool
 	Threads     int
-	Proxies     string
+	HTTPProxies string
 	Timeout     int
 	UserAgent   string
 }

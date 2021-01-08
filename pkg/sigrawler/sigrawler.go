@@ -97,10 +97,10 @@ func New(URL string, options *Options) (crawler Sigrawler, err error) {
 
 	// Setup proxy if supplied
 	// NOTE: Must come AFTER .SetClient calls
-	if crawler.Options.Proxies != "" {
-		proxies := strings.Split(crawler.Options.Proxies, ",")
+	if crawler.Options.HTTPProxies != "" {
+		proxiesURLs := strings.Split(crawler.Options.HTTPProxies, ",")
 
-		rrps, err := proxy.RoundRobinProxySwitcher(proxies...)
+		rrps, err := proxy.RoundRobinProxySwitcher(proxiesURLs...)
 		if err != nil {
 			return crawler, err
 		}

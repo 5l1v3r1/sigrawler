@@ -53,7 +53,7 @@ func init() {
 	flag.IntVar(&so.Threads, "threads", 20, "")
 	flag.IntVar(&so.Timeout, "timeout", 10, "")
 	flag.StringVar(&so.UserAgent, "UA", "", "")
-	flag.StringVar(&so.Proxies, "x", "", "")
+	flag.StringVar(&so.HTTPProxies, "http-proxies", "", "")
 
 	flag.Usage = func() {
 		banner()
@@ -65,6 +65,7 @@ func init() {
 		h += "  -debug          debug mode (default: false)\n"
 		h += "  -delay          delay between requests. (default 5s)\n"
 		h += "  -depth          maximum limit on the recursion depth of visited URLs. (default 1)\n"
+		h += "  -http-proxies   comma separated list of proxies\n"
 		h += "  -iL             urls to crawl (use `iL -` to read from stdin)\n"
 		h += "  -iS             extend scope to include subdomains (default: false)\n"
 		h += "  -nC             no color mode\n"
@@ -72,9 +73,7 @@ func init() {
 		h += "  -s              silent mode: print urls only (default: false)\n"
 		h += "  -threads        maximum no. of concurrent requests (default 20)\n"
 		h += "  -timeout        HTTP timeout (default 10s)\n"
-		h += "  -UA             User Agent to use\n"
-		h += "  -x              comma separated list of proxies\n"
-		h += "\n"
+		h += "  -UA             User Agent to use\n\n"
 
 		fmt.Fprintf(os.Stderr, h)
 	}
