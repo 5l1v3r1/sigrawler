@@ -43,17 +43,17 @@ func banner() {
 
 func init() {
 	flag.BoolVar(&so.Debug, "debug", false, "")
-	flag.IntVar(&so.Delay, "delay", 5, "")
+	flag.IntVar(&so.RandomDelay, "random-delay", 2, "")
 	flag.IntVar(&so.Depth, "depth", 1, "")
 	flag.StringVar(&co.URLs, "iL", "", "")
 	flag.BoolVar(&so.IncludeSubs, "iS", false, "")
 	flag.BoolVar(&co.noColor, "nC", false, "")
 	flag.StringVar(&co.output, "oJ", "", "")
-	flag.BoolVar(&co.silent, "s", false, "")
+	flag.BoolVar(&co.silent, "silent", false, "")
 	flag.IntVar(&so.Threads, "threads", 20, "")
 	flag.IntVar(&so.Timeout, "timeout", 10, "")
 	flag.StringVar(&so.UserAgent, "UA", "", "")
-	flag.StringVar(&so.HTTPProxies, "http-proxies", "", "")
+	flag.StringVar(&so.Proxies, "proxies", "", "")
 
 	flag.Usage = func() {
 		banner()
@@ -61,19 +61,23 @@ func init() {
 		h := "USAGE:\n"
 		h += "  sigrawler [OPTIONS]\n"
 
-		h += "\nOPTIONS:\n"
-		h += "  -debug          debug mode (default: false)\n"
-		h += "  -delay          delay between requests. (default 5s)\n"
-		h += "  -depth          maximum limit on the recursion depth of visited URLs. (default 1)\n"
-		h += "  -http-proxies   comma separated list of proxies\n"
-		h += "  -iL             urls to crawl (use `iL -` to read from stdin)\n"
-		h += "  -iS             extend scope to include subdomains (default: false)\n"
-		h += "  -nC             no color mode\n"
-		h += "  -oJ             JSON output file\n"
-		h += "  -s              silent mode: print urls only (default: false)\n"
-		h += "  -threads        maximum no. of concurrent requests (default 20)\n"
-		h += "  -timeout        HTTP timeout (default 10s)\n"
-		h += "  -UA             User Agent to use\n\n"
+		h += "\nCRAWLER OPTIONS:\n"
+		h += "  -depth           maximum limit on the recursion depth of visited URLs. (default 1)\n"
+		h += "  -iS              extend scope to include subdomains (default: false)\n"
+		h += "  -proxies         comma separated list of proxies\n"
+		h += "  -random-delay    maximum random delay between requests (default: 2s)\n"
+		h += "  -threads         maximum no. of concurrent requests (default 20)\n"
+		h += "  -timeout         HTTP timeout (default 10s)\n"
+		h += "  -UA              User Agent to use\n"
+
+		h += "\nINPUT OPTIONS:\n"
+		h += "  -iL              urls to crawl (use `iL -` to read from stdin)\n"
+
+		h += "\nOUTPUT OPTIONS:\n"
+		h += "  -debug           stdout: debug mode (default: false)\n"
+		h += "  -nC              stdout: no color mode (default: false)\n"
+		h += "  -oJ              JSON: output file\n"
+		h += "  -silent          stdout: silent mode (default: false)\n"
 
 		fmt.Fprintf(os.Stderr, h)
 	}

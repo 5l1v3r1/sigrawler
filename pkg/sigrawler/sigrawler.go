@@ -26,7 +26,6 @@ type Sigrawler struct {
 	JCollector *colly.Collector
 }
 
-// New is a
 func New(URL string, options *Options) (crawler Sigrawler, err error) {
 	crawler.Options = options
 
@@ -97,8 +96,8 @@ func New(URL string, options *Options) (crawler Sigrawler, err error) {
 
 	// Setup proxy if supplied
 	// NOTE: Must come AFTER .SetClient calls
-	if crawler.Options.HTTPProxies != "" {
-		proxiesURLs := strings.Split(crawler.Options.HTTPProxies, ",")
+	if crawler.Options.Proxies != "" {
+		proxiesURLs := strings.Split(crawler.Options.Proxies, ",")
 
 		rrps, err := proxy.RoundRobinProxySwitcher(proxiesURLs...)
 		if err != nil {
@@ -117,7 +116,7 @@ func New(URL string, options *Options) (crawler Sigrawler, err error) {
 	err = pCollector.Limit(&colly.LimitRule{
 		DomainGlob:  fmt.Sprintf("*%s", parsedURL.ETLDPlus1),
 		Parallelism: crawler.Options.Threads,
-		Delay:       time.Duration(crawler.Options.Delay) * time.Second,
+		RandomDelay: time.Duration(crawler.Options.RandomDelay) * time.Second,
 	})
 	if err != nil {
 		return crawler, err
